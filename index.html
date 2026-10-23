@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A little birthday game made for Chit Sone, with love from Tommy.">
+<meta property="og:title" content="Happy Birthday, Chit Sone ♥">
+<meta property="og:description" content="Press start. A little birthday game made with love from Tommy.">
+<style>[hidden]{display:none!important} *{box-sizing:border-box}</style>
+<title>Chit Sone's Birthday</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;600&family=Noto+Sans+Myanmar:wght@600&display=swap">
+<style>
+/* Layout: full-screen pixel scene (low-res canvas scaled up); RPG dialogue box at the bottom, HUD on top, a letter that opens at the end. One committed 8-bit sunset look. */
+:root {
+  color-scheme: light;
+  --ink: #2b1b2e;
+  --pink: #ff7aa2;
+  --gold: #ffd23f;
+  --paper: #fff7ec;
+  --night: #1f1a3a;
+  --font-pixel: "Press Start 2P", "Courier New", monospace;
+  --font-text: "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif;
+}
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; background: var(--ink); color: var(--ink); font-family: var(--font-text); -webkit-tap-highlight-color: transparent; }
+#scene { position: fixed; top: 0; left: 0; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: manipulation; cursor: pointer; }
+
+.outline { color: #fff; text-shadow: 3px 0 var(--ink), -3px 0 var(--ink), 0 3px var(--ink), 0 -3px var(--ink), 3px 3px var(--ink), -3px 3px var(--ink), 3px -3px var(--ink), -3px -3px var(--ink), 0 6px var(--ink); }
+
+.title {
+  position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 7vh);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;
+}
+.title .date { font: 0.65rem/1 var(--font-pixel); letter-spacing: 0.15em; }
+.title h1 { margin: 0; font: clamp(1rem, 4.6vw, 2.2rem)/1.2 var(--font-pixel); }
+.title .name { margin: 0; font: clamp(1.7rem, 8vw, 3.8rem)/1.1 var(--font-pixel); color: var(--pink); }
+.title .btn { margin-top: 10px; }
+.blink { animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+
+.btn {
+  font: 0.72rem/1 var(--font-pixel); color: var(--ink); background: var(--gold);
+  border: 3px solid var(--ink); border-radius: 0; padding: 12px 16px;
+  box-shadow: 0 4px 0 var(--ink); cursor: pointer;
+}
+.btn:hover { background: #ffe27a; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.btn:focus-visible { outline: 3px dashed #fff; outline-offset: 4px; }
+.btn.alt { background: #bfeaff; }
+
+.hud {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); left: max(14px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 8px; font: 0.62rem/1 var(--font-pixel); pointer-events: none;
+}
+.hud .row { display: flex; align-items: center; gap: 8px; }
+.hud img { width: 30px; height: 21px; image-rendering: pixelated; }
+.hud .heart { color: var(--pink); }
+.sound {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px); right: max(14px, env(safe-area-inset-right, 0px));
+  font-size: 0.58rem; padding: 9px 10px; background: var(--paper);
+}
+
+.dialog {
+  position: fixed; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: 720px; margin: 0 auto; box-sizing: border-box; min-height: 118px;
+  background: var(--night); color: #fff;
+  border: 4px solid #fff; box-shadow: 0 0 0 4px var(--ink), 6px 8px 0 4px rgba(43, 27, 46, 0.45);
+  padding: 22px 18px 16px; cursor: pointer;
+}
+.dialog .who {
+  position: absolute; top: -16px; left: 14px; font: 0.62rem/1 var(--font-pixel);
+  background: var(--pink); color: var(--ink); border: 3px solid var(--ink); padding: 6px 8px;
+}
+.dialog .who.narr { background: var(--gold); }
+.dialog p { margin: 0; font-size: clamp(1.05rem, 2.6vw, 1.3rem); line-height: 1.45; min-height: 2.9em; }
+.dialog .act { margin-top: 12px; }
+.dialog .more { position: absolute; right: 14px; bottom: 8px; font: 0.7rem/1 var(--font-pixel); color: var(--gold); animation: bob 0.6s steps(2) infinite alternate; }
+@keyframes bob { to { transform: translateY(3px); } }
+
+.levelup {
+  position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 13vh);
+  display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; pointer-events: none;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.levelup b { font: clamp(1.6rem, 7vw, 3.4rem)/1 var(--font-pixel); color: var(--gold); animation: pop 0.5s steps(5) both; }
+.levelup span { font: clamp(0.6rem, 2.4vw, 0.9rem)/1.4 var(--font-pixel); }
+@keyframes pop { from { transform: scale(0.2); } to { transform: scale(1); } }
+
+.letter-wrap {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: rgba(43, 27, 46, 0.35);
+}
+.letter {
+  width: min(520px, 100%); max-height: 100%; overflow: auto; box-sizing: border-box;
+  background: var(--paper); border: 4px solid var(--ink); box-shadow: 8px 8px 0 var(--ink);
+  padding: 22px 22px 20px; animation: pop 0.4s steps(4) both;
+}
+.letter h2 { margin: 0 0 16px; font: 0.8rem/1.6 var(--font-pixel); color: #d9446f; letter-spacing: 0.04em; }
+.letter p { margin: 0 0 12px; font-size: 1.12rem; line-height: 1.5; max-width: 62ch; }
+.letter .sign { font: 0.8rem/1.6 var(--font-pixel); margin: 0 0 18px; }
+.letter .mm { font: 600 1.5rem/1.6 "Noto Sans Myanmar", "Myanmar Text", "Padauk", sans-serif; color: #d9446f; margin: 18px 0 6px; }
+.letter .row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+@media (prefers-reduced-motion: reduce) { .blink, .dialog .more { animation: none; } }
+</style>
+
+</head>
+<body>
+<canvas id="scene" aria-label="Pixel art scene: Tommy brings a birthday cake to Chit Sone on a green hill with trees"></canvas>
+
+<div class="title" id="title">
+  <span class="date outline">24 OCTOBER</span>
+  <h1 class="outline">HAPPY BIRTHDAY</h1>
+  <p class="name outline">CHIT SONE</p>
+  <button class="btn blink" id="start" type="button">▶ PRESS START</button>
+</div>
+
+<div class="hud outline" id="hud" hidden>
+  <div class="row"><span class="heart">♥</span> CHIT SONE</div>
+  <div class="row"><img id="hudIcon" alt=""> × <span id="count">0</span></div>
+</div>
+<button class="btn sound" id="sound" type="button" aria-pressed="true">♪ ON</button>
+
+<div class="levelup" id="levelup" hidden>
+  <b class="outline">LEVEL UP!</b>
+  <span class="outline">★ CHIT SONE ★ BIRTHDAY UNLOCKED</span>
+</div>
+
+<div class="dialog" id="dialog" hidden>
+  <span class="who" id="who">TOMMY</span>
+  <p id="line"></p>
+  <button class="btn act" id="act" type="button" hidden>Blow out the candle</button>
+  <span class="more" id="more" hidden>▼</span>
+</div>
+
+<div class="letter-wrap" id="letterWrap" hidden>
+  <article class="letter" aria-labelledby="lt">
+    <h2 id="lt">♥ A LETTER FOR CHIT SONE</h2>
+    <p>Dear Chit Sone,</p>
+    <p>Happy birthday to the girl who makes ordinary days feel like my favorite memories.</p>
+    <p>Since 14.02.2024, you've been my calm place. You're the one I want to tell everything to, the one who makes hard days lighter, and my favorite person to share dumplings and cake with.</p>
+    <p>I know you've been missing your little bunny. I hope you can feel that all the love you gave is still with you. And whatever season comes next, I'll be right beside you, the way the trees on a green hill always grow their leaves back.</p>
+    <p>Your name begins with love, and so does every day I spend with you.</p>
+    <p>Thank you for choosing me. I'll keep choosing you, every level, every year.</p>
+    <p class="mm" lang="my">ချစ်တယ် ♥</p>
+    <p class="sign">Love, Tommy</p>
+    <div class="row">
+      <button class="btn" id="replay" type="button">↺ PLAY AGAIN</button>
+      <button class="btn alt" id="closeLetter" type="button">VIEW THE HILL</button>
+    </div>
+  </article>
+</div>
+
+<script>
+(() => {
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---------------- palette + sprites ----------------
+  const PAL = { k:"#2b1b2e", h:"#1b1420", H:"#4a3a5c", s:"#f8cfae", b:"#f2939f", m:"#d24f63", w:"#ffffff", c:"#f6c6d6", v:"#34407a",
+    p:"#4a5f9e", n:"#6b4430", t:"#f7f4ee", o:"#f08a3c", u:"#3b78d8", f:"#ff9fbd", y:"#ffe08a", G:"#9a98a6", q:"#f4a6b8", R:"#ff4d6d", g:"#d8d6e2" };
+  function S(rows) {
+    const w = Math.max(...rows.map(r => r.length)), h = rows.length;
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    rows.forEach((r, y) => [...r].forEach((ch, x) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(x, y, 1, 1); } }));
+    return { c, w, h };
+  }
+  const girlRows = [
+    "....kkkkkkkk....", "...khhhhhhhhk...", "..khhhHHhhhhhk..", ".khhhHhhhhhhhhk.", ".khhhhhhHhhhhhk.",
+    ".khhssshhssshhk.", ".khhsssssssshhk.", ".khhsksssskshhk.", ".khhsksssskshhk.", ".khhbssssssbhhk.",
+    ".khhsssmmssshhk.", ".khhhsssssshhhk.", ".khhhhksskhhhhk.", ".khkcwwwwwwckhk.", ".khkcvvvvvvckhk.",
+    ".khkcwwwwwwckhk.", ".khkcvvvvvvckhk.", ".khkcwwwwwwckhk.", "..kscvvvvvvcsk..", "..kkcwwwwwwckk..",
+    "...kppppppppk...", "...kppppppppk...", "....kssk.kssk...", "....kssk.kssk...", "....knnk.knnk...", "....kkkk.kkkk..."
+  ];
+  const GIRL = S(girlRows);
+  const GIRL_BLINK = S(girlRows.map((r, i) => i === 7 ? ".khhsssssssshhk." : i === 8 ? ".khhskksskkshhk." : r));
+  const boyTop = [
+    "................", "....kkkkkkkk....", "...khhhhhhhhk...", "..khhhhHhhhhhk..", "..khhhhhhhhhhk..",
+    "..khhhhhhhhhhk..", "..khhhhhhssshk..", "..khkkkkkkkkhk..", "..khkeksskekhk..", "..khkkksskkkhk..",
+    "..khbssssssbhk..", "..kssssmmssssk..", "...kssssssssk...", "......kssk......", "...kttttttttk...",
+    "..kttttttttttk..", "..ksttouuottsk..", "..ksttuoouttsk..", "..ksttttttttsk..", "...kttttttttk...",
+    "...kppppppppk..."
+  ];
+  const BOY_A = S(boyTop.concat(["...kpppkkpppk...", "...kpppkkpppk...", "...kpppkkpppk...", "...knnnkknnnk...", "...kkkkkkkkkk..."]));
+  const BOY_B = S(boyTop.concat(["...kpppkkpppk...", "..kpppk..kpppk..", "..kpppk..kpppk..", "..knnnk..knnnk..", "..kkkkk..kkkkk.."]));
+  const CAKE = S(["..kkkkkkkkkk..", ".kwwwwwwwwwwk.", ".kwwRwwwwRwwk.", ".kfwwfwwfwwfk.", ".kffffffffffk.",
+    ".kyyyyyyyyyyk.", ".kffffffffffk.", "kggggggggggggk", ".kkkkkkkkkkkk."]);
+  const DUMP = S(["...k.k.k..", "..kwkwkwk.", ".kwwwwwwwk", "kwwwwwwwwk", "kwwkwwkwwk", "kwbwwwwbwk", ".kwwwwwwk.", "..kkkkkk.."]);
+  const BUNNY = S(["....kkkkkk....", "...kGGGGGGk...", "..kGGGwwGGGk..", ".kGGGwwwwGGGk.", ".kGGwkwwkwGGk.",
+    ".kGGwwqqwwGGk.", ".kGGwwwwwwGGk.", "..kGwwwwwwGk..", "..kkwwwwwwkk..", "..kwwwwwwwwk..",
+    "..kwwGGwwwwk..", "...kwwkkwwk...", "...kkk..kkk..."]);
+  const HEART = S([".kk.kk.", "kRRkRRk", "kRRRRRk", ".kRRRk.", "..kRk..", "...k..."]);
+  document.getElementById("hudIcon").src = DUMP.c.toDataURL();
+
+  // ---------------- layout + background ----------------
+  const cvs = document.getElementById("scene"), ctx = cvs.getContext("2d");
+  const bgc = document.createElement("canvas"), bgx = bgc.getContext("2d");
+  let s = 3, VW = 200, VH = 150, cx = 100, gy = 90, treeTops = [];
+  const groundAt = x => gy + Math.round(Math.pow((x - cx) / (VW * 0.5), 2) * 16);
+  const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]].map(r => r.map(v => v / 16));
+  function rng(seed) { return () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const rgb = hex => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+
+  function layout() {
+    const W = innerWidth, H = innerHeight;
+    s = Math.max(2, Math.floor(Math.min(W / 120, H / 150)));
+    VW = Math.ceil(W / s); VH = Math.ceil(H / s);
+    cvs.width = VW; cvs.height = VH; cvs.style.width = VW * s + "px"; cvs.style.height = VH * s + "px";
+    cx = Math.floor(VW / 2);
+    gy = Math.floor(VH * (W < H ? 0.6 : 0.62));
+    buildBg();
+  }
+
+  function buildBg() {
+    bgc.width = VW; bgc.height = VH;
+    const img = bgx.createImageData(VW, VH), d = img.data, R = rng(24101999);
+    const px = (x, y, c) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= VW || y >= VH) return; const i = (y * VW + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255; };
+    const disc = (x0, y0, r, c, cond) => { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r * 0.6 && (!cond || cond(x0 + x, y0 + y))) px(x0 + x, y0 + y, c); };
+    const b = (x, y) => BAYER[y & 3][x & 3];
+
+    // sky
+    const sky = ["#7fc4f2", "#a7d4f3", "#d2d7f0", "#f6cde0", "#ffc9c4", "#ffdcb4"].map(rgb);
+    for (let y = 0; y < VH; y++) for (let x = 0; x < VW; x++) {
+      const t = Math.min(1, y / (gy + 4)) * (sky.length - 1);
+      px(x, y, sky[Math.min(sky.length - 1, Math.floor(t + b(x, y)))]);
+    }
+    // sun
+    const sx = cx + Math.floor(VW * 0.28), sy = gy - 24;
+    disc(sx, sy, 12, rgb("#ffe6a8"), (x, y) => b(x, y) < 0.5);
+    disc(sx, sy, 9, rgb("#fff3c4"));
+    // far hills
+    const h1 = rgb("#b9e2a2"), h1e = rgb("#d3f0b9"), h2 = rgb("#8ccf83"), h2e = rgb("#a9de97"), ft = rgb("#6fb870"), ft2 = rgb("#4f9d5c");
+    for (let x = 0; x < VW; x++) {
+      const top = gy - 24 + Math.round(Math.sin(x * 0.045) * 5 + Math.sin(x * 0.11 + 2) * 2);
+      for (let y = top; y < VH; y++) px(x, y, y === top ? h1e : h1);
+      if (x % 13 === 5) disc(x, top - 2, 2, ft);
+    }
+    for (let x = 0; x < VW; x++) {
+      const top = gy - 11 + Math.round(Math.sin(x * 0.06 + 1) * 4 + Math.sin(x * 0.15) * 1.5);
+      for (let y = top; y < VH; y++) px(x, y, y === top ? h2e : h2);
+      if (x % 17 === 8) { disc(x, top - 3, 3, ft2); disc(x - 1, top - 4, 1, ft); }
+    }
+    // main hill
+    const g0 = rgb("#56ad5d"), g1 = rgb("#3e8f4f"), gTop = rgb("#9be07a"), gTop2 = rgb("#74c763");
+    for (let x = 0; x < VW; x++) {
+      const top = groundAt(x);
+      for (let y = top; y < VH; y++) {
+        const t = (y - top) / Math.max(1, VH - top);
+        px(x, y, y === top ? gTop : y === top + 1 ? gTop2 : (t * 1.5 > b(x, y) + 0.35 ? g1 : g0));
+      }
+      if (R() < 0.18) px(x, top - 1, gTop2);
+    }
+    // flowers
+    const fl = ["#ff9fbd", "#ffffff", "#ffe27a", "#ffb3c7"].map(rgb);
+    for (let i = 0; i < VW * 0.5; i++) {
+      const x = Math.floor(R() * VW), y = groundAt(x) + 3 + Math.floor(R() * Math.max(4, (VH - groundAt(x)) * 0.5));
+      px(x, y, fl[i % fl.length]);
+    }
+    // trees
+    treeTops = [];
+    const trunk = rgb("#7a4b2e"), trunkD = rgb("#5e3822"), lD = rgb("#2f7d45"), lM = rgb("#47a35a"), lL = rgb("#7cc96a");
+    function tree(tx, sc) {
+      tx = Math.round(tx); const base = groundAt(tx), th = Math.round(12 * sc);
+      for (let y = base - th; y < base + 1; y++) for (let x = -2; x < 2; x++) px(tx + x, y, x === -2 ? trunkD : trunk);
+      const blobs = [[0, -th - 6, 9], [-7, -th - 1, 7], [7, -th - 1, 7], [0, -th - 13, 7]].map(([x, y, r]) => [x * sc, y, r * sc]);
+      blobs.forEach(([x, y, r]) => disc(tx + x, base + y, Math.round(r) + 1, lD));
+      blobs.forEach(([x, y, r]) => disc(tx + x, base + y, Math.round(r), lM));
+      blobs.forEach(([x, y, r]) => disc(tx + x - 2, base + y - 2, Math.round(r * 0.5), lL, (xx, yy) => b(xx, yy) < 0.75));
+      treeTops.push([tx, base - th - 8, 9 * sc]);
+    }
+    tree(cx - Math.max(46, VW * 0.36), 1);
+    tree(cx + Math.max(48, VW * 0.38), 1.1);
+    if (VW > 200) { tree(cx - VW * 0.47, 0.8); tree(cx + VW * 0.49, 0.75); }
+    bgx.putImageData(img, 0, 0);
+  }
+  layout();
+  addEventListener("resize", layout);
+
+  // ---------------- ambient: clouds + leaves ----------------
+  const clouds = [0, 1, 2].map(i => ({ x: (i * 0.37 + 0.1) * 300, y: 8 + i * 9, w: 22 + i * 6, v: 2 + i }));
+  function drawCloud(c) {
+    const x = Math.round(c.x % (VW + 60)) - 30, y = c.y, w = c.w;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x + 2, y, w - 4, 1); ctx.fillRect(x, y + 1, w, 3);
+    ctx.fillRect(x + Math.round(w * 0.25), y - 2, Math.round(w * 0.35), 2);
+    ctx.fillStyle = "#f3e2f1"; ctx.fillRect(x + 2, y + 4, w - 4, 1);
+  }
+  const leafCols = ["#7cc96a", "#47a35a", "#a8dc72", "#c7e57a"];
+  const leaves = Array.from({ length: reduced ? 8 : 22 }, () => newLeaf(true));
+  function newLeaf(anywhere) {
+    const tt = treeTops[Math.floor(Math.random() * treeTops.length)] || [cx, 20, 8];
+    return { x: anywhere ? Math.random() * VW : tt[0] + (Math.random() - 0.5) * tt[2] * 2, y: anywhere ? Math.random() * VH * 0.7 : tt[1] + Math.random() * 6,
+      vy: 5 + Math.random() * 6, ph: Math.random() * 6, c: leafCols[Math.floor(Math.random() * 4)], big: Math.random() < 0.5 };
+  }
+
+  // ---------------- state ----------------
+  const st = {
+    t: 0, started: false,
+    boy: { p: 0, walking: false, frame: 0 },
+    cake: { k: 0, placed: false, lit: true, moving: false },
+    bunny: { p: 0, active: false, moving: false },
+    girlJump: 0, blinkT: 2,
+    dumps: [0.32, 0.58, 0.82].map(f => ({ f, got: false, t: 0 })),
+    count: 0,
+    fx: []
+  };
+  const startX = () => -20, endX = () => cx - 26;
+  const boyX = () => startX() + (endX() - startX()) * st.boy.p;
+
+  function reset() {
+    st.boy.p = 0; st.boy.walking = false;
+    Object.assign(st.cake, { k: 0, placed: false, lit: true, moving: false });
+    Object.assign(st.bunny, { p: 0, active: false, moving: false });
+    st.dumps.forEach(d => { d.got = false; d.t = 0; });
+    st.count = 0; countEl.textContent = "0"; st.fx = []; st.girlJump = 0;
+  }
+
+  // ---------------- audio (chiptune) ----------------
+  let ac = null, master = null, soundOn = true, nodes = [], loopTimer = null;
+  function A() {
+    if (!soundOn) return null;
+    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = 0.16; master.connect(ac.destination); } catch (e) { return null; } }
+    if (ac.state === "suspended") ac.resume();
+    return ac;
+  }
+  function tone(f, t, d, type = "square", v = 0.5) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(v, t); g.gain.setValueAtTime(v, t + d * 0.8); g.gain.linearRampToValueAtTime(0, t + d);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + d + 0.02); nodes.push(o);
+    if (nodes.length > 400) nodes = nodes.slice(-200);
+  }
+  function stopAll() { clearInterval(loopTimer); loopTimer = null; nodes.forEach(o => { try { o.stop(); } catch (e) {} }); nodes = []; }
+  const blip = () => { if (A()) tone(1100 + Math.random() * 300, ac.currentTime, 0.025, "square", 0.18); };
+  const coin = () => { if (!A()) return; const t = ac.currentTime; tone(988, t, 0.07); tone(1319, t + 0.07, 0.22); };
+  function fanfare() {
+    if (!A()) return; let t = ac.currentTime + 0.02;
+    [523, 659, 784, 1047, 784, 1047].forEach((f, i) => { tone(f, t, i === 5 ? 0.5 : 0.1); tone(f / 2, t, i === 5 ? 0.5 : 0.1, "triangle", 0.6); t += 0.1; });
+  }
+  function puff() {
+    if (!A()) return;
+    const len = ac.sampleRate * 0.45, buf = ac.createBuffer(1, len, ac.sampleRate), dd = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) dd[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = buf; f.type = "lowpass"; f.frequency.value = 1400; g.gain.value = 0.9;
+    src.connect(f); f.connect(g); g.connect(master); src.start();
+  }
+  function walkLoop() {
+    if (!A()) return;
+    const mel = [659, 0, 784, 0, 880, 784, 659, 523, 587, 0, 659, 0, 587, 523, 494, 523], bass = [131, 98, 110, 98], step = 0.17;
+    const play = () => {
+      if (!ac || !soundOn) return; let t = ac.currentTime + 0.05;
+      mel.forEach((f, i) => { if (f) tone(f, t, step * 0.9, "square", 0.28); if (i % 4 === 0) tone(bass[i / 4], t, step * 3.6, "triangle", 0.7); t += step; });
+    };
+    play(); loopTimer = setInterval(play, mel.length * 0.17 * 1000);
+  }
+  function birthdaySong() {
+    if (!A()) return;
+    const song = [[392, .75], [392, .25], [440, 1], [392, 1], [523, 1], [494, 2], [392, .75], [392, .25], [440, 1], [392, 1], [587, 1], [523, 2],
+      [392, .75], [392, .25], [784, 1], [659, 1], [523, 1], [494, 1], [440, 2], [698, .75], [698, .25], [659, 1], [523, 1], [587, 1], [523, 3]];
+    const beat = 0.36; let t = ac.currentTime + 0.1;
+    song.forEach(([f, d]) => { tone(f, t, d * beat * 0.92, "square", 0.32); tone(f / 2, t, d * beat * 0.92, "triangle", 0.5); t += d * beat; });
+  }
+
+  // ---------------- fx ----------------
+  function hearts(n, x, y) { for (let i = 0; i < n; i++) st.fx.push({ k: "heart", x: x + (Math.random() - 0.5) * 30, y: y + Math.random() * 6, vy: -(10 + Math.random() * 14), ph: Math.random() * 6, life: 2 + Math.random() * 1.5 }); }
+  function confetti(n, x, y) {
+    const cs = ["#ff4d6d", "#ffd23f", "#5fd0ff", "#9b7bff", "#7be0a6", "#ffffff"];
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, sp = 20 + Math.random() * 45; st.fx.push({ k: "conf", x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, c: cs[i % cs.length], life: 2.5 + Math.random() }); }
+  }
+  function sparkle(x, y) { for (let i = 0; i < 4; i++) st.fx.push({ k: "spark", x: x + (Math.random() - 0.5) * 12, y: y + (Math.random() - 0.5) * 8, life: 0.6 + Math.random() * 0.4 }); }
+  function smoke(x, y) { for (let i = 0; i < 6; i++) st.fx.push({ k: "smoke", x: x + (Math.random() - 0.5) * 2, y: y - i * 1.5, vy: -8 - Math.random() * 6, life: 1 + i * 0.12 }); }
+
+  // ---------------- dialogue + script ----------------
+  const dlg = document.getElementById("dialog"), whoEl = document.getElementById("who"), lineEl = document.getElementById("line"),
+    actBtn = document.getElementById("act"), moreEl = document.getElementById("more"), countEl = document.getElementById("count"),
+    hud = document.getElementById("hud"), title = document.getElementById("title"), lvl = document.getElementById("levelup"),
+    letterWrap = document.getElementById("letterWrap");
+  let typing = false, full = "", shown = 0, typeTimer = null, awaitingBlow = false, inSay = false, step = 0;
+
+  const msDay = 86400000, met = new Date(2024, 1, 14), now = new Date();
+  const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - met) / msDay);
+
+  function say(who, text, prompt) {
+    inSay = true; dlg.hidden = false;
+    whoEl.textContent = who; whoEl.classList.toggle("narr", who === "★");
+    full = text; shown = 0; lineEl.textContent = ""; typing = true;
+    actBtn.hidden = true; moreEl.hidden = true; awaitingBlow = false;
+    clearInterval(typeTimer);
+    typeTimer = setInterval(() => {
+      shown++; lineEl.textContent = full.slice(0, shown);
+      if (shown % 3 === 0 && full[shown - 1] !== " ") blip();
+      if (shown >= full.length) finishTyping(prompt);
+    }, 28);
+    if (prompt) actBtn.textContent = prompt;
+  }
+  function finishTyping(prompt) {
+    clearInterval(typeTimer); typing = false; lineEl.textContent = full;
+    const cur = script[step];
+    if (cur && cur.prompt) { actBtn.hidden = false; awaitingBlow = true; actBtn.focus({ preventScroll: true }); }
+    else moreEl.hidden = false;
+  }
+  function advance() {
+    if (!inSay || awaitingBlow) return;
+    if (typing) { finishTyping(); return; }
+    step++; run();
+  }
+  function run() {
+    const cur = script[step];
+    if (!cur) return;
+    if (cur.say) say(cur.say[0], cur.say[1], cur.prompt);
+    else { inSay = false; dlg.hidden = true; cur.do(() => { step++; run(); }); }
+  }
+  function doBlow() {
+    if (!awaitingBlow) return;
+    awaitingBlow = false; inSay = false; dlg.hidden = true;
+    step++; run();
+  }
+
+  const script = [
+    { do: done => { st.boy.walking = true; walkLoop(); st.onArrive = () => { stopAll(); done(); }; } },
+    { say: ["TOMMY", "Chit Sone! Happy birthday!"] },
+    { say: ["TOMMY", "I found three dumplings on the way here. Don't worry, they're all for you."] },
+    { do: done => { st.cake.moving = true; st.onCake = done; } },
+    { say: ["TOMMY", "And of course there's cake. Close your eyes and make a wish."] },
+    { say: ["★", "Tap the cake, or press the button, to blow out the candle."], prompt: "Blow out the candle" },
+    { do: done => {
+        st.cake.lit = false; puff(); smoke(cx + 1, stumpTop() - 15);
+        setTimeout(() => {
+          fanfare(); lvl.hidden = false; st.girlJump = 1.6;
+          confetti(reduced ? 20 : 50, cx, stumpTop() - 12); hearts(10, cx + 17, girlTop());
+        }, 350);
+        setTimeout(birthdaySong, 1200);
+        setTimeout(() => { lvl.hidden = true; done(); }, 3000);
+      } },
+    { say: ["★", "CHIT SONE leveled up! Kindness: MAX. Cuteness: MAX. Loved: ∞"] },
+    { do: done => { st.bunny.active = true; st.bunny.moving = true; st.onBunny = done; } },
+    { say: ["★", "Someone small and fluffy hopped over from the trees to say happy birthday."] },
+    { say: ["TOMMY", "I know you miss your little bunny. All the love you gave stays with you, right here in your heart."] },
+    { say: ["★", "MEMORY UNLOCKED: 14.02.2024. The day our story began."] },
+    { say: ["★", `We've been together for ${days} days, and counting.`] },
+    { say: ["TOMMY", "One more thing. I wrote you a letter."] },
+    { do: () => { letterWrap.hidden = false; hearts(8, cx, gy - 20); document.getElementById("replay").focus({ preventScroll: true }); } }
+  ];
+
+  // ---------------- input ----------------
+  function start() {
+    if (st.started) return;
+    st.started = true; title.hidden = true; hud.hidden = false;
+    A(); step = 0; run();
+  }
+  document.getElementById("start").addEventListener("click", start);
+  actBtn.addEventListener("click", e => { e.stopPropagation(); doBlow(); });
+  dlg.addEventListener("click", advance);
+  cvs.addEventListener("click", () => {
+    if (!st.started) return start();
+    if (awaitingBlow) return doBlow();
+    advance();
+  });
+  addEventListener("keydown", e => {
+    if (e.target.tagName === "BUTTON") return;
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      if (!st.started) start(); else if (awaitingBlow) doBlow(); else advance();
+    }
+  });
+  document.getElementById("replay").addEventListener("click", () => {
+    letterWrap.hidden = true; stopAll(); reset(); step = 0; run();
+  });
+  document.getElementById("closeLetter").addEventListener("click", () => {
+    letterWrap.hidden = true; hearts(6, cx + 17, girlTop());
+    dlg.hidden = false; inSay = false; awaitingBlow = false;
+    whoEl.textContent = "★"; whoEl.classList.add("narr"); actBtn.hidden = true; moreEl.hidden = true;
+    lineEl.textContent = "Tap here to read the letter again.";
+    dlg.onclick = () => { if (!inSay) { dlg.hidden = true; letterWrap.hidden = false; } };
+  });
+  const soundBtn = document.getElementById("sound");
+  soundBtn.addEventListener("click", () => {
+    soundOn = !soundOn; soundBtn.textContent = soundOn ? "♪ ON" : "♪ OFF";
+    soundBtn.setAttribute("aria-pressed", String(soundOn));
+    if (!soundOn) stopAll();
+  });
+
+  // ---------------- drawing ----------------
+  const stumpTop = () => groundAt(cx) - 7;
+  const girlTop = () => groundAt(cx + 17) - 26;
+  const spr = (o, x, y) => ctx.drawImage(o.c, Math.round(x), Math.round(y));
+  const shadow = (x, w) => { ctx.fillStyle = "rgba(31,74,41,0.35)"; ctx.fillRect(Math.round(x), groundAt(x + w / 2), w, 2); };
+
+  function drawStump() {
+    const x = cx - 7, y = stumpTop();
+    ctx.fillStyle = PAL.k; ctx.fillRect(x, y, 14, 8);
+    ctx.fillStyle = "#8a5a3a"; ctx.fillRect(x + 1, y + 2, 12, 6);
+    ctx.fillStyle = "#6e4429"; ctx.fillRect(x + 3, y + 3, 1, 4); ctx.fillRect(x + 9, y + 4, 1, 3);
+    ctx.fillStyle = "#e0ad74"; ctx.fillRect(x + 1, y + 1, 12, 1);
+  }
+  function drawCake(x, y) {
+    spr(CAKE, x, y);
+    const cxl = Math.round(x) + 6, cy = Math.round(y) - 5;
+    ctx.fillStyle = PAL.k; ctx.fillRect(cxl - 1, cy - 1, 4, 6);
+    ctx.fillStyle = "#5fd0ff"; ctx.fillRect(cxl, cy, 2, 5);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(cxl, cy + 1, 2, 1); ctx.fillRect(cxl, cy + 3, 2, 1);
+    if (st.cake.lit) {
+      const tall = Math.floor(st.t * 10) % 3 === 0 ? 4 : 3;
+      ctx.fillStyle = "#ff8a2b"; ctx.fillRect(cxl, cy - 1 - tall, 2, tall);
+      ctx.fillStyle = "#fff3b0"; ctx.fillRect(cxl + (Math.floor(st.t * 7) % 2), cy - tall, 1, tall - 1);
+      ctx.fillStyle = "rgba(255,220,120,0.35)"; ctx.fillRect(cxl - 2, cy - tall - 2, 6, tall + 3);
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; st.t += dt;
+
+    // update: boy walk + pickups
+    if (st.boy.walking) {
+      st.boy.p = Math.min(1, st.boy.p + dt * 26 / Math.max(40, endX() - startX()));
+      st.dumps.forEach(d => {
+        if (!d.got && st.boy.p >= d.f) { d.got = true; st.count++; countEl.textContent = st.count; coin(); sparkle(boyX() + 8, groundAt(boyX() + 8) - 8); }
+      });
+      if (st.boy.p >= 1) { st.boy.walking = false; const f = st.onArrive; st.onArrive = null; f && f(); }
+    }
+    if (st.cake.moving) {
+      st.cake.k = Math.min(1, st.cake.k + dt * 1.8);
+      if (st.cake.k >= 1) { st.cake.moving = false; st.cake.placed = true; sparkle(cx, stumpTop() - 6); const f = st.onCake; st.onCake = null; f && f(); }
+    }
+    if (st.bunny.moving) {
+      st.bunny.p = Math.min(1, st.bunny.p + dt * 0.45);
+      if (st.bunny.p >= 1) { st.bunny.moving = false; hearts(4, cx + 34, groundAt(cx + 34) - 16); const f = st.onBunny; st.onBunny = null; f && f(); }
+    }
+    st.girlJump = Math.max(0, st.girlJump - dt);
+    st.blinkT -= dt; if (st.blinkT < -0.14) st.blinkT = 2 + Math.random() * 2.5;
+
+    // draw
+    ctx.drawImage(bgc, 0, 0);
+    clouds.forEach(c => { c.x += c.v * dt; drawCloud(c); });
+
+    drawStump();
+
+    // dumplings
+    st.dumps.forEach(d => {
+      const x = startX() + (endX() - startX()) * d.f + 3;
+      const baseY = groundAt(x + 5) - 9;
+      if (!d.got) { shadow(x + 1, 8); spr(DUMP, x, baseY - (Math.floor(st.t * 3 + d.f * 10) % 2)); }
+      else if (d.t < 0.6) { d.t += dt; ctx.globalAlpha = 1 - d.t / 0.6; spr(DUMP, x, baseY - d.t * 30); ctx.globalAlpha = 1; }
+    });
+
+    // girl
+    const gx = cx + 9;
+    const jump = st.girlJump > 0 ? Math.round(Math.abs(Math.sin(st.girlJump * 9)) * 6) : 0;
+    const breathe = Math.floor(st.t * 1.6) % 2;
+    shadow(gx + 2, 12);
+    spr(st.blinkT < 0 ? GIRL_BLINK : GIRL, gx, girlTop() - jump + breathe * 0);
+    if (!st.started && Math.floor(st.t * 2) % 4 === 0) { /* idle */ }
+
+    // boy
+    const bx = boyX();
+    if (bx > -18) {
+      const walkF = st.boy.walking ? Math.floor(st.t * 6) % 2 : 0;
+      const by = groundAt(bx + 8) - 26 - (st.boy.walking && walkF ? 1 : 0);
+      shadow(bx + 2, 12);
+      spr(walkF ? BOY_B : BOY_A, bx, by);
+      // cake
+      const heldX = bx + 1, heldY = by + 12, placeX = cx - 7, placeY = stumpTop() - 9;
+      if (!st.cake.placed && !st.cake.moving) drawCake(heldX, heldY);
+      else {
+        const k = st.cake.placed ? 1 : st.cake.k, e = k * k * (3 - 2 * k);
+        drawCake(heldX + (placeX - heldX) * e, heldY + (placeY - heldY) * e - Math.sin(k * Math.PI) * 6);
+      }
+    }
+
+    // bunny
+    if (st.bunny.active) {
+      const x = VW + 4 + (cx + 27 - VW - 4) * st.bunny.p;
+      const hop = st.bunny.moving ? Math.abs(Math.sin(st.t * 9)) * 5 : (Math.floor(st.t * 0.8) % 5 === 0 ? Math.abs(Math.sin(st.t * 9)) * 2 : 0);
+      shadow(x + 3, 9);
+      spr(BUNNY, x, groundAt(x + 7) - 13 - hop);
+      if (!st.bunny.moving && Math.random() < dt * 0.25) hearts(1, x + 7, groundAt(x + 7) - 18);
+    }
+
+    // leaves
+    leaves.forEach((l, i) => {
+      l.y += l.vy * dt; l.x += Math.sin(st.t * 1.8 + l.ph) * 9 * dt + 3 * dt;
+      if (l.y > VH || l.x > VW + 4) leaves[i] = newLeaf(false);
+      ctx.fillStyle = l.c; ctx.fillRect(Math.round(l.x), Math.round(l.y), l.big ? 2 : 1, 1);
+      if (l.big) ctx.fillRect(Math.round(l.x) + (Math.sin(st.t * 3 + l.ph) > 0 ? 1 : 0), Math.round(l.y) + 1, 1, 1);
+    });
+
+    // fx
+    for (let i = st.fx.length - 1; i >= 0; i--) {
+      const f = st.fx[i]; f.life -= dt;
+      if (f.life <= 0) { st.fx.splice(i, 1); continue; }
+      if (f.k === "heart") { f.y += f.vy * dt; ctx.globalAlpha = Math.min(1, f.life); spr(HEART, f.x + Math.sin(st.t * 3 + f.ph) * 3, f.y); ctx.globalAlpha = 1; }
+      else if (f.k === "conf") { f.vy += 60 * dt; f.vx *= 1 - 1.5 * dt; f.x += f.vx * dt; f.y += f.vy * dt; ctx.fillStyle = f.c; ctx.fillRect(Math.round(f.x), Math.round(f.y), Math.floor(f.life * 4) % 2 ? 2 : 1, 1); }
+      else if (f.k === "spark") { if (Math.floor(f.life * 12) % 2) { ctx.fillStyle = "#fff6b0"; ctx.fillRect(Math.round(f.x), Math.round(f.y) - 1, 1, 3); ctx.fillRect(Math.round(f.x) - 1, Math.round(f.y), 3, 1); } }
+      else if (f.k === "smoke") { f.y += f.vy * dt; ctx.fillStyle = `rgba(210,200,215,${Math.min(0.9, f.life)})`; ctx.fillRect(Math.round(f.x + Math.sin(f.y * 0.5)), Math.round(f.y), 2, 2); }
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
